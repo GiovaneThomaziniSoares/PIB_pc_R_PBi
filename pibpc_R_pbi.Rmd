@@ -1,0 +1,398 @@
+---
+title: "PIB per capita real: obtenção e visualização"
+author: "Giovane Thomazini Soares"
+date: "16/08/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<br>
+
+#### O PIB per capita é usualmente utilizado para descrever a economia (IBGE, 2017) e o nível de renda de cidades (PEREIRA; NAKABASHI; SACHSIDA, 2011).
+
+#### Visualizar informações espaço-temporais sobre tal medida tende a ser uma abordagem frutífera para serem captados, em uma primeira abordagem, padrões relevantes de fenômenos econômicos de localidades/regionalidades. Ao tratar da gestão pública, destaca-se que a captação desses padrões possibilita melhor compreender e, assim, dirigir com maior fundamentação a economia de elementos sócio-espaciais (como cidades). Já focalizando o setor privado, ressaltamos que o contexto econômico regional/local demonstra significativa capacidade de impactar em negócios (PIKE; RODRÍGUEZ-POSE; TOMANEY, 2016), assim, é importante considerá-lo para efetuar diagnóstico, sendo o último uma etapa do plenajemaneto estratégico (OLIVEIRA, 2007).
+
+#### Neste projeto, ao manipular e tratar dados, alcançamos o PIB per capita real para todos os municípios do estado de São Paulo (SP) no período 2002 - 2018.
+
+<br>
+
+#### Fazemos deploy dessa medida para ela ser visualizada, sob a perspectiva espaço-temporal, no software Power BI. Efetuamos iniciais interpretações dos padrões vislumbrados.
+#### O link para acesso ao arquivo de Power BI publicado é encontrado a seguir (https://app.powerbi.com/view?r=eyJrIjoiYWY1ZDFkMDgtNDU0Mi00ODZlLWExOTktZmFjY2Q2ZjM5ZWE2IiwidCI6IjViOTM5NzViLWIzN2MtNGJlMC1hNDg1LTM3ODEzMGMwMDRjMCJ9&pageName=ReportSectiondbe0870ba053a5d3c0c6) e também em outra parte do código (intitulada "Percepções fundamentadas em análise do Power BI"), que contém sucintas interpretações dos padrões vislumbrados em tal aquivo.
+
+<br>
+
+#### Vamos ao código.
+
+<br>
+
+------------------------------------------------
+------------------------------------------------
+### **Leitura de pacotes e importação de dados.**
+
+<br>
+
+#### Leitura de pacotes
+```{r}
+library(dplyr)
+library(reshape2)
+library(sidrar)
+library(knitr)
+```
+
+<br>
+
+#### Seta a pasta, importa e visualiza dados. Esses foram coletados no IBGE e também por meio de API do SINDRA.
+```{r}
+# Seta pasta.
+setwd("C:/Users/Usuario/Documents/PIB per capita real cidades SP visualizado no Power BI")
+
+
+# Importa dados.
+pib_corr10_18 <- read.table("PIB corrente dos Municípios - base de dados 2010-2018.csv", 
+                                header = TRUE, quote = "\"", sep = ";", dec = ",")
+
+pib_corr02_09 <- read.table("PIB dos Municípios - base de dados 2002-2009.csv", 
+                                header = TRUE, quote = "\"", sep = ";", dec = ",")
+
+ipca_tot <- get_sidra(api = "/t/1737/n1/all/v/69/p/200212,200312,200412,200512,200612,200712,200812,200912,201012,201112,201212,201312,201412,201512,201612,201712,201812/d/v69%202")
+
+
+# Visualiza os DFs importados.
+kable(pib_corr10_18[1:5,], format="markdown")
+
+kable(pib_corr02_09[1:5,], format="markdown")
+
+kable(ipca_tot[1:5,], format="markdown")
+```
+
+<br>
+
+------------------------------------------------
+------------------------------------------------
+
+### **Manipulação de DFs**.
+
+<br>
+
+#### Tratando dos DF que contém informação de PIB, seleciona apenas os municípios de interesse que, neste Markdown, são os paulistas. Também simplica os DFs, selecionados apenas colunas que serão necessárias. 
+```{r}
+# Seleciona municípios paulistas.
+pib_corr10_18_sp <- subset(pib_corr10_18, Sigla.da.Unidade.da.Federação == "SP")
+
+pib_corr02_09_sp <- subset(pib_corr02_09, Sigla.da.Unidade.da.Federação == "SP")
+
+
+# Seleciona colunas.
+pib_corr10_18_sp_filt <- pib_corr10_18_sp[,c(1,7,8,40)]
+
+pib_corr02_09_sp_filt <- pib_corr02_09_sp[,c(1,7,8,40)]
+
+
+# Visualiza os DFs resultantes.
+kable(pib_corr10_18_sp_filt[1:5,], format="markdown")
+
+kable(pib_corr02_09_sp_filt[1:5,], format="markdown")
+```
+
+<br>
+
+#### Funde os dois últimos DFs obtidos em apenas um, que contém todas as informações de PIB para todos os anos aqui considerados. 
+```{r}
+# Funde os dois últimos DFs.
+pib_corr_sp_filt <- bind_rows(pib_corr10_18_sp_filt, pib_corr02_09_sp_filt)
+
+
+# Ordena o último DF obtido primeiro de acordo com ano e, em segundo, o nome das cidades.
+pib_corr_sp_filt <- pib_corr_sp_filt[order(pib_corr_sp_filt[,1], pib_corr_sp_filt[,3]), ]
+
+
+# Visualiza o DF pib_corr_sp_filt.
+kable(pib_corr_sp_filt[1:5,], format="markdown")
+```
+
+<br>
+
+#### Trata o DF que contém informações do IPCA para fundí-lo com o pib_corr_sp_filt. Executa tal fusão.
+```{r}
+# Renomeia colunas.
+ipca_tot <- ipca_tot %>% rename(Ano = `Mês (Código)`, IPCA = Valor)
+
+
+# Insere valor de anos.
+ipca_tot[,10] <- 2002:2018
+
+
+# Seleciona apenas colunas de interesse.
+ipca_tot_filt <- ipca_tot[,c(5,10)]
+
+
+# Visualiza o DF obtido.
+kable(ipca_tot_filt[1:5,], format="markdown")
+
+
+# Funde o último DF obtido com o que contém informações de PIB.
+pibcor_ipca <- merge(pib_corr_sp_filt, ipca_tot_filt, by = "Ano")
+
+
+# Visualiza o DF pibcor_ipca.
+kable(pibcor_ipca[1:5,], format="markdown")
+```
+
+<br>
+
+#### Passamos o DF pibcor_ipca do formato long para wide e tratamos o DF resultante.
+```{r}
+#O último DF obtido é passado do formato long para o wide.
+wd_pibcor_ipca <- reshape(pibcor_ipca, idvar = "Código.do.Município", timevar = "Ano",
+                                                   direction = "wide")
+
+
+# Visualiza o último DF.
+kable(wd_pibcor_ipca[1:5,], format="markdown")
+
+
+# Deleta colunas desnecessárias do último DF visualizado.
+seq_col_delet <- seq(from = 5, to = 50, by = 3)
+
+wd_pibcor_ipca_filt <- wd_pibcor_ipca[,-c(seq_col_delet)]
+
+
+# Reordena colunas.
+seq_col_order_pib <- seq(from = 3, to = 35, by = 2)
+
+seq_col_order_ipca <- seq(from = 4, to = 36, by = 2)
+
+wd_pibcor_ipca_filt <- wd_pibcor_ipca_filt[,c(1,2,seq_col_order_pib,seq_col_order_ipca)]
+
+
+# Visualiza o último DF obtido.
+kable(wd_pibcor_ipca_filt[1:5,], format="markdown")
+```
+
+
+------------------------------------------------
+------------------------------------------------
+### **Transforma o PIB de valores correntes para reais.**
+
+<br>
+
+#### #### Para que os dados de distintos anos sejam comparáveis entre si, é necessário levar em consideração a taxa de crescimento do nível geral de preços. Ou seja, é preciso considerar a inflação.
+#### Assim, vamos deflacionar os valores do PIB.
+#### Nesse procedimento, dos valores correntes, são obtidos os valores reais do PIB.
+```{r}
+# Cria primeiro índice para demonstração.
+wd_pibcor_ipca_filt["indice_02"] <- (1+wd_pibcor_ipca_filt[,20]/100)*100
+
+
+# Prepara para receber todos os outros índices.
+nomes_indices <- paste0("indice_", 2003:2018)
+
+wd_pibcor_ipca_filt[nomes_indices] <- as.numeric(NA)
+
+
+# Cria todos os outros índices.
+for(i in 21:36){
+  for(k in 38:53){
+    if(i == k - 17){
+      wd_pibcor_ipca_filt[,k] <- (1+wd_pibcor_ipca_filt[,i]/100)*wd_pibcor_ipca_filt[,k-1]
+    }
+  }
+}
+
+
+# Prepara para receber todos os PIB reais.
+nomes_pib_pc_real <- paste0("PIB.per.capita.real.", 2002:2018)
+
+wd_pibcor_ipca_filt[nomes_pib_pc_real] <- as.numeric(NA)
+
+# Cria PIB real.
+for(i in 3:19){
+  for(j in 37:53){
+    for(k in 54:70){
+      if(i == j - 34 & j == k - 17){
+          wd_pibcor_ipca_filt[,k] <- 
+        wd_pibcor_ipca_filt[,53]*wd_pibcor_ipca_filt[,i]/wd_pibcor_ipca_filt[,j]
+      }
+    }
+  }
+}
+
+
+# Seleciona colunas com nome de cidades ou que contém valores de PIB per capita real.
+wd_pib <- wd_pibcor_ipca_filt[,c(2,54:70)]
+```
+
+<br>
+
+------------------------------------------------
+------------------------------------------------
+### **Transformações de DFs para que dados sejam importados no Power BI.**
+
+<br>
+
+#### Forneço mais informações para a coluna que trata do nome dos municípios. Isso faz com que o Power BI reconheça a qual cidade cada dado refere-se.
+```{r}
+nm_municp <- wd_pib$Nome.do.Município.2002
+
+wd_pib[,1] <- paste(nm_municp, sep = ", ", "SP", "BR")
+
+
+#Altero nome de cidades para que o PBI identifique corretamente essas cidades.
+wd_pib[187,1] <- "Florínea, SP, BR"
+wd_pib[116,1] <- "Candido Rodrigues, SP, BR"
+wd_pib[75,1] <- "Biritiba-Mirim, SP, BR"
+wd_pib[170,1] <- "Embu, SP, BR"
+wd_pib[256,1] <- "Itaóca, SP, BR"
+wd_pib[346,1] <- "Moji das Cruzes, SP, BR"
+wd_pib[348,1] <- "Moji-Mirim, SP, BR"
+wd_pib[562,1] <- "São Luís do Paraitinga, SP, BR"
+
+
+# salvo os nomes finais.
+nm_municp_f <- wd_pib$Nome.do.Município.2002
+```
+
+<br>
+
+#### Abaixo transformamos o DF wd_pib para formato que o Power BI seja capaz de lidar em dimensão espacial e temporal.
+```{r}
+# Faz a transposta.
+wd_pib_t <- as.data.frame(t(wd_pib[,-1]))
+
+
+# Renomeia colunas.
+colnames(wd_pib_t) <- nm_municp_f
+
+
+# Cria coluna que contém informação de ano.
+wd_pib_t["ano"] <- 2002:2018
+
+
+# Visualiza o último DF.
+kable(wd_pib_t[1:5,], format="markdown")
+
+
+# Efetua melt no último DF e renomeia suas colunas.
+melt_wd_pib_t <- melt(wd_pib_t,id="ano")
+
+colnames(melt_wd_pib_t)[c(2,3)] <- c("Cidades", "Pib per capita")
+
+
+# Reordena e renomeia as linhas do DF.
+melt_wd_pib_t <- melt_wd_pib_t[order(melt_wd_pib_t[,1], melt_wd_pib_t[,2]), ]
+
+rownames(melt_wd_pib_t) <- 1:nrow(melt_wd_pib_t)
+
+
+# Visualiza o último DF obtido.
+kable(melt_wd_pib_t[1:5,], format="markdown")
+```
+
+<br> 
+
+#### Temos uma série histórica não curta (17 anos). Podemos aproveitar tal extensão para gerar informações mais específicas sobre partes da série. 
+#### Assim, segmentamos os períodos em: 2009 - 2002 e 2018 - 2010. O total, 2018 - 2002, também é considerado.
+#### Para cada um desses períodos, calculamos o delta do PIB per capita real. Ele é expresso em porcentagem perante o PIB per captia real mais antigo do período tratado.
+```{r}
+# Seleciona apenas colunas de interesse.
+var_pib <- wd_pib[,c(1,2,10,18)]
+
+
+# Calcula duas das três porcentagens.
+var_pib <- var_pib %>% 
+  mutate(
+    across(
+      c(PIB.per.capita.real.2010, PIB.per.capita.real.2018),
+      ~ (.x - PIB.per.capita.real.2002)/PIB.per.capita.real.2002,
+      .names = "({.col} - PIB.per.capita.real.2002)/ PIB.per.capita.real.2002"
+    ),
+  )
+
+
+# Calcula a terceira porcentagem.
+var_pib["Porcentagem variação PIBPC 18 - 10"] <- (var_pib[,4] - var_pib[,3])/var_pib[,3]
+
+
+# Mantém apenas as colunas de interesse e as renomeia.
+var_pib <- var_pib[,c(1,5:7)] 
+
+colnames(var_pib) <- c("Cidades", "Porcentagem variação PIBpc 10 - 02", "Porcentagem variação PIBPC 18 - 02", "Porcentagem variação PIBPC 18 - 10")
+
+
+# Multiplica por 100 todos os valores numéricos.
+var_pib[,c(2:4)] <- 100*var_pib[,c(2:4)]
+
+
+# Visualiza o último DF obtido.
+kable(var_pib[1:5,], format="markdown")
+```
+
+<br>
+
+##### Por fim, exportamos os nossos DFs de interesse para serem importados ao no Power BI: melt_wd_pib_t e var_pib.
+```{r}
+# write.table(melt_wd_pib_t, file="pib_pc_real_2002_2018.csv", 
+#             sep=";",row.names = FALSE, dec = ",")
+# 
+# 
+# write.table(var_pib, file="var_porcent_pib_pc_real.csv", 
+#             sep=";",row.names = FALSE, dec = ",")
+```
+
+<br>
+
+------------------------------------------------
+------------------------------------------------
+### **Percepções fundamentadas em análise do Power BI.**
+
+<br>
+
+#### Neste momento, é recomendada visualização do arquivo de Power BI elaborado com os dados alcançados neste Markdown.
+#### Abaixo é expresso o link com o arquivo público do Power BI.
+#### https://app.powerbi.com/view?r=eyJrIjoiYWY1ZDFkMDgtNDU0Mi00ODZlLWExOTktZmFjY2Q2ZjM5ZWE2IiwidCI6IjViOTM5NzViLWIzN2MtNGJlMC1hNDg1LTM3ODEzMGMwMDRjMCJ9&pageName=ReportSectiondbe0870ba053a5d3c0c6
+
+------------------------------------------------
+
+<br>
+
+#### Tal visualização proprorciona algumas informações basilares. Aqui expresso duas dessas, me aprofundando em uma.
+#### Inicialmente, é notável a potencial dependência espacial. Isto é, o valor de uma variável (no caso, PIB per capita real) em determinada região (no caso, municípios) deve depender do valor dessa variável em outras regiões próximas (ALMEIDA, 2012).*
+#### Mais especificamente, é clara a predominância da autocorrelação espacial positiva, na qual valores altos (baixos) de uma variável, tendem a estar associados com valores altos (baixos) de seus vizinhos (ALMEIDA, 2012). 
+#### Isso é um indicativo empírico de que a estrutura econômica de localidades próximas estão integradas e positivamente dependentes, assim, gestões (públicas e privadas) podem se beneficiar do desenvolvimento de redes de cooperação. Estes indicativos encontram coerência com outros achados científicos sobre o valor de cooperação regional para localidades e negócios (FRENKEN; HOEKMAN, 2006; MOLIT, 2014; MALECKI, 2018).
+#### Por fim, visualizamos que o delta de PIB per capita real demonstrou, de maneira geral, desempenho substancialmente pior no período 2018 - 2010 perante o 2009 - 2002. Tomado este problema, pode ser de interesse para gestões identificarem cidades que desempenharam melhor que a de interesse (especialmente no período mais problemático) e que sejam similares ela (considerando especialmente estruturas e dinâmicas econômicas) para buscar potenciais soluções para vencer desafios e soluções análogos de suas cidades (BETTENCOURT et al., 2010).
+
+<br>
+
+------------------------------------------------
+------------------------------------------------
+### **Referências.**
+
+<br>
+
+#### ALMEIDA, E. Econometria Espacial Aplicada. Campinas: Alínea, 2012.
+
+#### BETTENCOURT, L. M. et al. Urban Scaling and Its Deviations: Revealing the Structure of Wealth, Innovation and Crime across Cities. PLoS ONE, [S.l.], v. 5, n. 11, 2010.
+
+#### FRENKEN, Koen; HOEKMAN, Jarno. Convergence in an enlarged Europe: the role of network cities. Tijdschrift voor economische en sociale geografie, v. 97, n. 3, p. 321-326, 2006.
+
+#### INSTITUTO BRASILEIRO DE GEGRAFIA E ESTATÍSTICA (IBGE). (2017). Conheça cidades e estados do Brasil. Disponível em: https://cidades.ibge.gov.br/. Acesso em: 01 mar. 2021.
+
+#### MINGALEVA, Zhanna et al. Networking of small cities to gain sustainability. Entrepreneurship and Sustainability Issues, v. 5, n. 1, p. 140-156, 2017.
+
+#### MOLIT. Status of urban planning 2013. Korean Government, p. 3-6, 2014.
+
+#### PEREIRA, A. E. G.; NAKABASHI, L.; SACHSIDA, A. (2011). Qualidade das instituições e PIB per capita nos municípios brasileiros. Instituto de Pesquisa Econômica Aplicada (IPEA). Brasília, n. 1623. Disponível em: https://www.econstor.eu/bitstream/10419/91035/1/664511309.pdf. Acesso em: 01 mar. 2021.
+
+#### PIKE, Andy; RODRÍGUEZ-POSE, Andrés; TOMANEY, John. Local and regional development. Routledge, 2016.
+
+<br>
+
+------------------------------------------------
+### **Rodapé.**
+
+<br>
+
+#### *A confirmação de existência de autocorrelação espacial pode ser efetuada por meio da estimação de I de Moran. O cálculo desse tipo de medida está profundamente envolvido com o desenvolvimento da minha tese, que trata da modelagem de grande quantia de dados espaço-temporais. Em algum futuro Markdown, demonstro um exemplo de cálculo de I de Moran no software R.
