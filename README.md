@@ -1,1 +1,1 @@
-Em pibpc_R_pbi.Rmd obtemos o código bruto do Markdown encontrado em https://rpubs.com/GiovaneThomazini/PibPcSp
+Em pibpc_R_pbi.Rmd obtemos código muito similar ao gerador da publicação encontrada em https://rpubs.com/GiovaneThomazini/PibPcMunicpsSP
